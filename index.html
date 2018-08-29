@@ -181,6 +181,53 @@
   </div>
 </template>
 
+<script>
+  'use strict';
+  var wizardSpeed = 3;
+  var wizardWidth = 70;
+  var fireballSize = 22;
+
+  /**
+   * Функция, возвращающая
+   * скорость полета мага
+   *
+   * @param {boolean} left
+   * @return {number}
+   */
+  var getFireBallSpeed = function (left) {
+    return left ? 5 : 2;
+  };
+
+  /**
+   * Функция, возвращающая высоту мага
+   *
+   * @return {number}
+   */
+  var getWizardHeight = function () {
+    return 1.337 * wizardWidth;
+  };
+
+  /**
+   * Функция получения позиции X мага
+   *
+   * @param {number} width
+   * @return {number}
+   */
+  var getWizardX = function (width) {
+    return (width - wizardWidth) / 2;
+  };
+
+  /**
+   * Функция получения позиции Y мага
+   *
+   * @param {number} height
+   * @return {number}
+   */
+  var getWizardY = function (height) {
+    return height / 3 - getWizardHeight();
+  };
+
+</script>
 <script src="js/game.js"></script>
 
 </body>
