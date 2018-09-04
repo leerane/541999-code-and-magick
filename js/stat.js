@@ -110,7 +110,9 @@ CanvasRenderingContext2D.prototype.roundRect = function (x, y, width, height, op
   };
 
   for (var prop in rectOptions) {
-    rectOptions[prop] = options[prop] || rectOptions[prop];
+    if (rectOptions.hasOwnProperty(prop)) {
+      rectOptions[prop] = options[prop] || rectOptions[prop];
+    }
   }
 
   this.fillStyle = rectOptions.fill;
@@ -126,8 +128,12 @@ CanvasRenderingContext2D.prototype.roundRect = function (x, y, width, height, op
   this.quadraticCurveTo(x, y + height, x, y + height - rectOptions.bottomLeft);
   this.lineTo(x, y + rectOptions.topLeft);
 
-  if (rectOptions.fill) this.fill();
-  if (rectOptions.stroke) this.stroke();
+  if (rectOptions.fill) {
+    this.fill();
+  }
+  if (rectOptions.stroke) {
+    this.stroke();
+  }
 };
 
 /**
