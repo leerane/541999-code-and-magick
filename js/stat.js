@@ -6,6 +6,7 @@ var Cloud = {
   X: 100,
   Y: 10,
   GAP: 10,
+  RADIUS: 50,
   FILL_COLOR: '#ffffff',
   STROKE_COLOR: '000000'
 };
@@ -65,15 +66,13 @@ CanvasRenderingContext2D.prototype.printText = function (text, x, y, fitWidth, l
 
 /**
  * Функция получения максимального элемента
- * в одномерном массиве
+ * в одномерном числовом массиве
  *
  * @param {number[]} arr
- * @return {*}
+ * @return {number}
  */
 var getMaxElement = function (arr) {
-  return arr.sort(function (a, b) {
-    return b - a;
-  })[0];
+  return Math.max.apply(null, arr);
 };
 
 /**
@@ -91,29 +90,69 @@ var getRandomNumber = function (min, max, include) {
 };
 
 /**
- * Функция отрисовки облака
+ * Функция отрисовки прямоугольника
+ * с закругленными краями
+ *
+ * @param {number} x
+ * @param {number} y
+ * @param {number} width
+ * @param {number} height
+ * @param {Object} options
+ */
+CanvasRenderingContext2D.prototype.roundRect = function (x, y, width, height, options) {
+  var rectOptions = {
+    topLeft: 0,
+    topRight: 0,
+    bottomRight: 0,
+    bottomLeft: 0,
+    fill: '',
+    stroke: ''
+  };
+
+  for (var prop in rectOptions) {
+    rectOptions[prop] = options[prop] || rectOptions[prop];
+  }
+
+  this.fillStyle = rectOptions.fill;
+  this.strokeStyle = rectOptions.stroke;
+  this.beginPath();
+  this.moveTo(x, y + rectOptions.topLeft);
+  this.quadraticCurveTo(x, y, x + rectOptions.topLeft, y);
+  this.lineTo(x + width - rectOptions.topRight, y);
+  this.quadraticCurveTo(x + width, y, x + width, y + rectOptions.topRight);
+  this.lineTo(x + width, y + height - rectOptions.bottomRight);
+  this.quadraticCurveTo(x + width, y + height, x + width - rectOptions.bottomRight, y + height);
+  this.lineTo(x + rectOptions.bottomLeft, y + height);
+  this.quadraticCurveTo(x, y + height, x, y + height - rectOptions.bottomLeft);
+  this.lineTo(x, y + rectOptions.topLeft);
+
+  if (rectOptions.fill) this.fill();
+  if (rectOptions.stroke) this.stroke();
+};
+
+/**
+ * Функция отрисовки колонки гистограммы
  *
  * @param {Object} ctx
- * @param {number} startX
- * @param {number} startY
- * @param {string} fill
- * @param {string} stroke
+ * @param {number} x
+ * @param {number} time
+ * @param {number} maxTime
+ * @param {string} name
+ * @param {string} color
  */
-var drawCloud = function (ctx, startX, startY, fill, stroke) {
-  ctx.fillStyle = fill;
-  ctx.strokeStyle = stroke;
-  ctx.beginPath();
-  ctx.moveTo(startX, startY + 50);
-  ctx.bezierCurveTo(startX, startY, startX + 50, startY, startX + 50, startY);
-  ctx.lineTo(startX + 370, startY);
-  ctx.bezierCurveTo(startX + 370, startY, startX + 420, startY, startX + 420, startY + 50);
-  ctx.lineTo(startX + 420, startY + 220);
-  ctx.bezierCurveTo(startX + 420, startY + 270, startX + 370, startY + 270, startX + 370, startY + 270);
-  ctx.lineTo(startX + 50, startY + 270);
-  ctx.bezierCurveTo(startX + 50, startY + 270, startX, startY + 270, startX, startY + 220);
-  ctx.closePath();
-  ctx.fill();
-  ctx.stroke();
+var getHistBar = function (ctx, x, time, maxTime, name, color) {
+  var currentTime = time;
+  var currentProportion = currentTime / maxTime;
+  var currentHeight = Bar.HEIGHT * currentProportion;
+  var currentOffsetX = x;
+  var currentOffsetY = Cloud.Y + Text.LINE_HEIGHT * 3 + (Bar.HEIGHT - currentHeight);
+  ctx.textAlign = 'left';
+  ctx.fillStyle = Text.FILL_COLOR;
+  ctx.fillText(String(Math.floor(currentTime)), currentOffsetX, currentOffsetY);
+  ctx.fillStyle = color;
+  ctx.fillRect(currentOffsetX, currentOffsetY + Text.LINE_HEIGHT, Bar.WIDTH, currentHeight);
+  ctx.fillStyle = Text.FILL_COLOR;
+  ctx.fillText(name, currentOffsetX, Cloud.HEIGHT - Text.LINE_HEIGHT);
 };
 
 /**
@@ -125,36 +164,37 @@ var drawCloud = function (ctx, startX, startY, fill, stroke) {
  * @param {number[]} times
  */
 window.renderStatistics = function (ctx, names, times) {
-  drawCloud(ctx, Shadow.X, Shadow.Y, Shadow.FILL_COLOR, '');
-  drawCloud(ctx, Cloud.X, Cloud.Y, Cloud.FILL_COLOR, Cloud.STROKE_COLOR);
+  // Отрисовка тени и облака
+  ctx.roundRect(Shadow.X, Shadow.Y, Cloud.WIDTH, Cloud.HEIGHT, {
+    topLeft: Cloud.RADIUS,
+    topRight: Cloud.RADIUS,
+    bottomRight: Cloud.RADIUS,
+    bottomLeft: Cloud.RADIUS,
+    fill: Shadow.FILL_COLOR
+  });
+  ctx.roundRect(Cloud.X, Cloud.Y, Cloud.WIDTH, Cloud.HEIGHT, {
+    topLeft: Cloud.RADIUS,
+    topRight: Cloud.RADIUS,
+    bottomRight: Cloud.RADIUS,
+    bottomLeft: Cloud.RADIUS,
+    fill: Cloud.FILL_COLOR,
+    stroke: Cloud.STROKE_COLOR
+  });
+
+  // Отрисовка сообщения о победе
   ctx.fillStyle = Text.FILL_COLOR;
   ctx.font = Text.STYLE;
   ctx.textBaseline = Text.BASELINE;
   ctx.textAlign = Text.ALIGN;
-  var message = Text.DATA;
-  ctx.printText(message, Cloud.X + Cloud.WIDTH / 2, Cloud.Y + 10, MAX_WIDTH, Text.LINE_HEIGHT);
+  ctx.printText(Text.DATA, Cloud.X + Cloud.WIDTH / 2, Cloud.Y + 10, MAX_WIDTH, Text.LINE_HEIGHT);
 
-  // Получаем максимальное время прохождения
   var MAX_TIME = getMaxElement(times);
 
+  // Отрисовка баров со статистикой
   for (var i = 0; i < names.length; i++) {
+    var barOffsetX = Cloud.X + Bar.GAP * (i + 1) + Bar.WIDTH * i;
     var saturationNumber = getRandomNumber(0, 100, true);
-    var barColor = 'hsl(240, ' + saturationNumber + '%, 50%)';
-    if (names[i] === 'Вы') {
-      barColor = Bar.PLAYER_FILL_COLOR;
-    }
-    var currentTime = times[i];
-    var currentProportion = currentTime / MAX_TIME;
-    var currentHeight = Bar.HEIGHT * currentProportion;
-    var currentOffsetX = Cloud.X + Bar.GAP * (i + 1) + Bar.WIDTH * i;
-    var currentOffsetY = Cloud.Y + Text.LINE_HEIGHT * 3 + (Bar.HEIGHT - currentHeight);
-    ctx.textAlign = 'left';
-    ctx.fillStyle = Text.FILL_COLOR;
-    ctx.fillText(String(Math.floor(currentTime)), currentOffsetX, currentOffsetY);
-    ctx.fillStyle = barColor;
-    ctx.fillRect(currentOffsetX, currentOffsetY + Text.LINE_HEIGHT, Bar.WIDTH, currentHeight);
-    ctx.fillStyle = Text.FILL_COLOR;
-    ctx.fillText(names[i], currentOffsetX, Cloud.HEIGHT - Text.LINE_HEIGHT);
+    var barColor = names[i] === 'Вы' ? Bar.PLAYER_FILL_COLOR : 'hsl(240, ' + saturationNumber + '%, 50%)';
+    getHistBar(ctx, barOffsetX, times[i], MAX_TIME, names[i], barColor);
   }
 };
-
